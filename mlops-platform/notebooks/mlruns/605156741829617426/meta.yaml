@@ -1,0 +1,8 @@
+artifact_location: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426
+creation_time: 1780042748081
+experiment_id: '605156741829617426'
+last_update_time: 1780042748081
+lifecycle_stage: active
+name: churn_prediction
+trace_location: null
+workspace: default

@@ -1,0 +1,14 @@
+artifact_uri: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/bb68739096134beba00a632aa9651bb6/artifacts
+end_time: 1780042772562
+entry_point_name: ''
+experiment_id: '605156741829617426'
+lifecycle_stage: active
+run_id: bb68739096134beba00a632aa9651bb6
+run_name: xgboost
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780042766881
+status: 3
+tags: []
+user_id: DELL

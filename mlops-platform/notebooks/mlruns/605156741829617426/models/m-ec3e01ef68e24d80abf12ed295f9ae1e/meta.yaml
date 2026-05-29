@@ -1,0 +1,10 @@
+artifact_location: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/models/m-ec3e01ef68e24d80abf12ed295f9ae1e/artifacts
+creation_timestamp: 1780042748838
+experiment_id: '605156741829617426'
+last_updated_timestamp: 1780042759047
+model_id: m-ec3e01ef68e24d80abf12ed295f9ae1e
+model_type: null
+name: model
+source_run_id: ed7c1c50157442ea9fd64d2c5e94e271
+status: 2
+status_message: null

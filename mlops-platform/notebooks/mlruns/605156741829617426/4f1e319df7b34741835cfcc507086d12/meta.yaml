@@ -1,0 +1,14 @@
+artifact_uri: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/4f1e319df7b34741835cfcc507086d12/artifacts
+end_time: 1780042766874
+entry_point_name: ''
+experiment_id: '605156741829617426'
+lifecycle_stage: active
+run_id: 4f1e319df7b34741835cfcc507086d12
+run_name: random_forest
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780042759185
+status: 3
+tags: []
+user_id: DELL

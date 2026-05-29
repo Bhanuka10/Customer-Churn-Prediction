@@ -1,0 +1,16 @@
+creation_timestamp: 1780042759096
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1780042759096
+model_id: m-ec3e01ef68e24d80abf12ed295f9ae1e
+name: churn_logistic_regression
+run_id: ed7c1c50157442ea9fd64d2c5e94e271
+run_link: null
+source: models:/m-ec3e01ef68e24d80abf12ed295f9ae1e
+status: READY
+status_message: null
+storage_location: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/models/m-ec3e01ef68e24d80abf12ed295f9ae1e/artifacts
+user_id: null
+version: 1
+workspace: default
