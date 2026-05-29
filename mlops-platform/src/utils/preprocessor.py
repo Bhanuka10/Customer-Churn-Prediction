@@ -17,7 +17,11 @@ def preprocess_input(data: dict) -> pd.DataFrame:
     if 'Churn' in df.columns:
         df.drop('Churn', axis=1, inplace=True)
 
-    df['TotalCharges'] = pd.to_numeric(df.get('TotalCharges', 0), errors='coerce').fillna(0)
+    if 'TotalCharges' in df.columns:
+        total_charges = pd.to_numeric(df['TotalCharges'], errors='coerce')
+    else:
+        total_charges = pd.Series([0] * len(df))
+    df['TotalCharges'] = total_charges.fillna(0)
 
     for col in BINARY_COLS:
         if col in df.columns:
