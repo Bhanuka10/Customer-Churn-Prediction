@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 COPY artifacts/ ./artifacts/
-COPY data/reference_data.csv ./data/
+COPY Data/reference_data.csv ./data/
 
 ENV PYTHONPATH=/app
 
