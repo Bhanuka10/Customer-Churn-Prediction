@@ -1,5 +1,6 @@
 import glob
 import os
+import pickle
 import sys
 import time
 from typing import Optional
@@ -29,6 +30,7 @@ MODEL      = None
 SCALER     = None
 MODEL_NAME = os.getenv("MODEL_NAME", "churn_xgboost")
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ARTIFACTS_DIR = os.path.join(PROJECT_ROOT, "artifacts")
 DEFAULT_MLFLOW_URI = f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}"
 MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 
@@ -49,28 +51,69 @@ def _find_model_id(model_name, stage):
             return _read_meta_value(lines, "model_id")
     return None
 
+def _load_model_from_artifacts():
+    """Load model directly from the local artifacts directory using pickle.
+
+    Returns the loaded model if artifacts/model.pkl exists, otherwise None.
+    This is the primary load path in production where the Docker image ships
+    the serialised model at /app/artifacts/model.pkl.
+    """
+    model_path = os.path.join(ARTIFACTS_DIR, "model.pkl")
+    if not os.path.exists(model_path):
+        return None
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    print(f"Loaded model from {model_path}")
+    return model
+
 @app.on_event("startup")
 def load_model():
     global MODEL, SCALER
+
     if os.getenv("SKIP_MODEL_LOAD", "").lower() in {"1", "true", "yes"}:
         print("Skipping model load (SKIP_MODEL_LOAD set).")
         return
-    mlflow.set_tracking_uri(MLFLOW_URI)
-    try:
-        MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
-    except MlflowException as exc:
-        if "No such artifact" not in str(exc):
-            raise
-        model_id = _find_model_id(MODEL_NAME, "Production")
-        if not model_id:
-            raise
-        pattern = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "*", "models", model_id, "artifacts")
-        matches = glob.glob(pattern)
-        if not matches:
-            raise
-        MODEL = mlflow.sklearn.load_model(matches[0])
+
+    # ── Primary path: local artifacts directory (production / Docker) ──
+    MODEL = _load_model_from_artifacts()
+
+    # ── Fallback: MLflow registry (development / testing) ─────────────
+    if MODEL is None:
+        mlflow.set_tracking_uri(MLFLOW_URI)
+        try:
+            MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
+            print(f"Loaded model from MLflow: {MODEL_NAME}/Production")
+        except MlflowException as exc:
+            if "No such artifact" not in str(exc):
+                print(f"Warning: MLflow error loading model: {exc}")
+            else:
+                model_id = _find_model_id(MODEL_NAME, "Production")
+                if model_id:
+                    pattern = os.path.join(
+                        PROJECT_ROOT, "notebooks", "mlruns", "*", "models", model_id, "artifacts"
+                    )
+                    matches = glob.glob(pattern)
+                    if matches:
+                        try:
+                            MODEL = mlflow.sklearn.load_model(matches[0])
+                            print(f"Loaded model from MLflow run artifacts: {matches[0]}")
+                        except Exception as inner_exc:
+                            print(f"Warning: Could not load model from MLflow run artifacts: {inner_exc}")
+                    else:
+                        print(f"Warning: No MLflow run artifacts found for model '{MODEL_NAME}'")
+                else:
+                    print(f"Warning: No Production-stage entry found in MLflow registry for '{MODEL_NAME}'")
+        except Exception as exc:
+            print(f"Warning: Unexpected error loading model from MLflow: {exc}")
+
+    if MODEL is None:
+        print(
+            "Warning: Model could not be loaded from artifacts or MLflow. "
+            "The /predict endpoint will return 503 until a model is available."
+        )
+
     SCALER = load_scaler("artifacts/scaler.pkl")
-    print(f"Loaded model: {MODEL_NAME}/Production")
+    print("Loaded scaler from artifacts/scaler.pkl")
 
 # ── Request / response schemas ───────────────────────────────────
 class CustomerFeatures(BaseModel):
