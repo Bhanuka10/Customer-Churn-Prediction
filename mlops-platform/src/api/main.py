@@ -162,6 +162,17 @@ class PredictionResponse(BaseModel):
 def health():
     return {"status": "ok", "model": MODEL_NAME, "loaded": MODEL is not None}
 
+
+@app.get("/")
+def root():
+    return {
+        "service": "customer-churn-prediction",
+        "status": "ok",
+        "health": "/health",
+        "predict": "/predict",
+        "metrics": "/metrics",
+    }
+
 @app.post("/predict", response_model=PredictionResponse)
 def predict(customer: CustomerFeatures):
     if MODEL is None:

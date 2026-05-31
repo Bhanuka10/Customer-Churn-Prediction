@@ -75,6 +75,16 @@ def test_health_endpoint():
         body = response.json()
         assert body["status"] == "ok"
 
+
+def test_root_endpoint():
+    main = _get_app_module()
+    client = TestClient(main.app)
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["health"] == "/health"
+
 def test_predict_returns_probability():
     mock_model = MagicMock()
     mock_model.predict_proba.return_value = [[0.8, 0.2]]
