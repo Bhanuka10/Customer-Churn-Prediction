@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import os
+import sys
+import time
 from typing import Optional
+
 import mlflow.sklearn
-import pandas as pd
-import numpy as np
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
-import time, os, sys
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pydantic import BaseModel
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.preprocessor import preprocess_input, load_scaler

@@ -1,7 +1,7 @@
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
 import pickle
+
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
 BINARY_COLS = ['gender', 'Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
 CAT_COLS    = ['MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup',
