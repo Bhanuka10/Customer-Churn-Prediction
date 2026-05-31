@@ -81,9 +81,8 @@ def test_root_endpoint():
     client = TestClient(main.app)
     response = client.get("/")
     assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ok"
-    assert body["health"] == "/health"
+    assert "Customer churn prediction" in response.text
+    assert "Predict churn" in response.text
 
 def test_predict_returns_probability():
     mock_model = MagicMock()

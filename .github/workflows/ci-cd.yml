@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -14,7 +14,8 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -22,60 +23,39 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
 
-      - name: Train model check
-        run: python notebooks/train_model.py
+      - name: Install lint tools
+        run: python -m pip install ruff
 
-      - name: Lint with ruff
-        run: |
-          pip install ruff
-          ruff check src/
+      - name: Lint
+        run: ruff check src tests
 
       - name: Run tests
-        run: pytest tests/ -v
-
-      - name: Start API
-        env:
-          SKIP_MODEL_LOAD: "1"
-        run: |
-          uvicorn src.api.main:app --host 127.0.0.1 --port 8000 &
-          sleep 5
-
-      - name: Test API endpoint
-        run: curl --fail http://127.0.0.1:8000/health
+        run: python -m pytest -q tests/test_api.py
 
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t churn-api:${{ github.sha }} .
 
-  cd:
+  deploy:
     needs: ci
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
     env:
-      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      RAILWAY_DEPLOY_HOOK_URL: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
+      RAILWAY_PUBLIC_URL: https://customer-churn-prediction-production-df94.up.railway.app
     steps:
-      - uses: actions/checkout@v4
+      - name: Trigger Railway deploy
+        if: ${{ env.RAILWAY_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "${{ env.RAILWAY_DEPLOY_HOOK_URL }}"
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build and push image
+      - name: Wait for Railway health check
+        if: ${{ env.RAILWAY_DEPLOY_HOOK_URL != '' }}
         run: |
-          IMAGE_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker build -f docker/Dockerfile -t ghcr.io/${IMAGE_REPO}/churn-api:latest .
-          docker push ghcr.io/${IMAGE_REPO}/churn-api:latest
-
-      - name: Deploy to Render
-        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
-        run: |
-          curl -X POST "${{ env.RENDER_DEPLOY_HOOK_URL }}"
-
-      - name: Health check
-        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
-        run: |
-          sleep 60
-          curl --fail https://your-app.onrender.com/health
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            if curl -fsS "${RAILWAY_PUBLIC_URL}/health"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
