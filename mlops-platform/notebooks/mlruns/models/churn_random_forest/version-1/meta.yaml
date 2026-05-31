@@ -10,7 +10,7 @@ run_link: null
 source: models:/m-25ea5d37b131418e9199d7672844cf4a
 status: READY
 status_message: null
-storage_location: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/models/m-25ea5d37b131418e9199d7672844cf4a/artifacts
+storage_location: file:/mlflow/mlruns/605156741829617426/models/m-25ea5d37b131418e9199d7672844cf4a/artifacts
 user_id: null
 version: 1
 workspace: default

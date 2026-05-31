@@ -1,4 +1,4 @@
-artifact_location: file:c:/Users/DELL/Desktop/new project/Customer-Churn-Prediction/mlops-platform/notebooks/mlruns/605156741829617426/models/m-25ea5d37b131418e9199d7672844cf4a/artifacts
+artifact_location: file:/mlflow/mlruns/605156741829617426/models/m-25ea5d37b131418e9199d7672844cf4a/artifacts
 creation_timestamp: 1780042760441
 experiment_id: '605156741829617426'
 last_updated_timestamp: 1780042766784
