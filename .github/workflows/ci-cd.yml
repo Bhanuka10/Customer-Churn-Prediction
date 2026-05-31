@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Train model check
+        run: python notebooks/train_model.py
+
       - name: Lint with ruff
         run: |
           pip install ruff
@@ -31,6 +34,16 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
+
+      - name: Start API
+        env:
+          SKIP_MODEL_LOAD: "1"
+        run: |
+          uvicorn src.api.main:app --host 127.0.0.1 --port 8000 &
+          sleep 5
+
+      - name: Test API endpoint
+        run: curl --fail http://127.0.0.1:8000/health
 
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t churn-api:${{ github.sha }} .

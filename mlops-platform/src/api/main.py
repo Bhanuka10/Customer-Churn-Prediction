@@ -29,6 +29,9 @@ MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 @app.on_event("startup")
 def load_model():
     global MODEL, SCALER
+    if os.getenv("SKIP_MODEL_LOAD", "").lower() in {"1", "true", "yes"}:
+        print("Skipping model load (SKIP_MODEL_LOAD set).")
+        return
     mlflow.set_tracking_uri(MLFLOW_URI)
     MODEL  = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
     SCALER = load_scaler("artifacts/scaler.pkl")
