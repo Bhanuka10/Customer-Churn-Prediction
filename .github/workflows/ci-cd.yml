@@ -42,6 +42,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,12 +57,12 @@ jobs:
           docker push ghcr.io/${IMAGE_REPO}/churn-api:latest
 
       - name: Deploy to Render
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          curl -X POST "${{ env.RENDER_DEPLOY_HOOK_URL }}"
 
       - name: Health check
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
           sleep 60
           curl --fail https://your-app.onrender.com/health
