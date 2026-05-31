@@ -2,14 +2,9 @@ import glob
 import os
 import sys
 import time
+import joblib
 from typing import Optional
 
-import mlflow
-import mlflow.sklearn
-try:
-    from mlflow.exceptions import MlflowException
-except Exception:  # Fallback for test stubs without mlflow.exceptions
-    MlflowException = Exception
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -29,24 +24,13 @@ MODEL      = None
 SCALER     = None
 MODEL_NAME = os.getenv("MODEL_NAME", "churn_xgboost")
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DEFAULT_MLFLOW_URI = f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}"
-MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 
-def _read_meta_value(lines, key):
-    prefix = f"{key}:"
-    for line in lines:
-        if line.startswith(prefix):
-            return line.split(":", 1)[1].strip()
-    return None
-
-def _find_model_id(model_name, stage):
-    registry_dir = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "models", model_name)
-    for meta_path in glob.glob(os.path.join(registry_dir, "version-*", "meta.yaml")):
-        with open(meta_path, "r", encoding="utf-8") as handle:
-            lines = [line.strip() for line in handle.readlines()]
-        current_stage = _read_meta_value(lines, "current_stage")
-        if current_stage == stage:
-            return _read_meta_value(lines, "model_id")
+def _find_latest_model():
+    """Find the latest model.pkl file in the mlruns directory."""
+    pattern = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "*", "models", "*", "artifacts", "model.pkl")
+    matches = sorted(glob.glob(pattern), reverse=True)
+    if matches:
+        return matches[0]
     return None
 
 @app.on_event("startup")
@@ -55,20 +39,19 @@ def load_model():
     if os.getenv("SKIP_MODEL_LOAD", "").lower() in {"1", "true", "yes"}:
         print("Skipping model load (SKIP_MODEL_LOAD set).")
         return
-    mlflow.set_tracking_uri(MLFLOW_URI)
+    
     try:
-        MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
-    except MlflowException as exc:
-        if "No such artifact" not in str(exc):
-            raise
-        model_id = _find_model_id(MODEL_NAME, "Production")
-        if not model_id:
-            raise
-        pattern = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "*", "models", model_id, "artifacts")
-        matches = glob.glob(pattern)
-        if not matches:
-            raise
-        MODEL = mlflow.sklearn.load_model(matches[0])
+        # Try to find and load the model from local artifacts
+        model_path = _find_latest_model()
+        if not model_path:
+            raise FileNotFoundError("No model.pkl found in mlruns directory")
+        
+        MODEL = joblib.load(model_path)
+        print(f"Loaded model from: {model_path}")
+    except Exception as exc:
+        print(f"Error loading model: {exc}")
+        raise
+    
     SCALER = load_scaler("artifacts/scaler.pkl")
     print(f"Loaded model: {MODEL_NAME}/Production")
 
@@ -131,3 +114,4 @@ def predict(customer: CustomerFeatures):
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
