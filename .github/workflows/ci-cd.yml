@@ -41,12 +41,7 @@ jobs:
         run: |
           docker run -d --name churn-api -e PORT=8000 -p 8000:8000 churn-api:${{ github.sha }}
           for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-            HEALTH=$(curl -fsS http://127.0.0.1:8000/health || true)
-            echo "$HEALTH"
-            if echo "$HEALTH" | grep -q '"loaded":true'; then
-              curl -fsS -X POST http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{"gender":"Female","SeniorCitizen":0,"Partner":"Yes","Dependents":"No","tenure":1,"PhoneService":"No","MultipleLines":"No phone service","InternetService":"DSL","OnlineSecurity":"No","OnlineBackup":"Yes","DeviceProtection":"No","TechSupport":"No","StreamingTV":"No","StreamingMovies":"No","Contract":"Month-to-month","PaperlessBilling":"Yes","PaymentMethod":"Electronic check","MonthlyCharges":29.85,"TotalCharges":29.85}'
-              exit 0
-            fi
+            python -c "import json; from urllib.request import Request, urlopen; payload={'gender':'Female','SeniorCitizen':0,'Partner':'Yes','Dependents':'No','tenure':1,'PhoneService':'No','MultipleLines':'No phone service','InternetService':'DSL','OnlineSecurity':'No','OnlineBackup':'Yes','DeviceProtection':'No','TechSupport':'No','StreamingTV':'No','StreamingMovies':'No','Contract':'Month-to-month','PaperlessBilling':'Yes','PaymentMethod':'Electronic check','MonthlyCharges':29.85,'TotalCharges':29.85}; health=json.load(urlopen('http://127.0.0.1:8000/health', timeout=5)); print(json.dumps(health)); assert health.get('loaded') is True; request=Request('http://127.0.0.1:8000/predict', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type':'application/json'}, method='POST'); prediction=json.load(urlopen(request, timeout=10)); print(json.dumps(prediction))" && exit 0
             sleep 4
           done
           docker logs churn-api
@@ -64,6 +59,11 @@ jobs:
       RAILWAY_DEPLOY_HOOK_URL: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
       RAILWAY_PUBLIC_URL: https://customer-churn-prediction-production-df94.up.railway.app
     steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Trigger Railway deploy
         if: ${{ env.RAILWAY_DEPLOY_HOOK_URL != '' }}
         run: curl -fsS -X POST "${{ env.RAILWAY_DEPLOY_HOOK_URL }}"
@@ -72,9 +72,7 @@ jobs:
         if: ${{ env.RAILWAY_DEPLOY_HOOK_URL != '' }}
         run: |
           for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-            if curl -fsS "${RAILWAY_PUBLIC_URL}/health"; then
-              exit 0
-            fi
+            python -c "import json, os; from urllib.request import Request, urlopen; payload={'gender':'Female','SeniorCitizen':0,'Partner':'Yes','Dependents':'No','tenure':1,'PhoneService':'No','MultipleLines':'No phone service','InternetService':'DSL','OnlineSecurity':'No','OnlineBackup':'Yes','DeviceProtection':'No','TechSupport':'No','StreamingTV':'No','StreamingMovies':'No','Contract':'Month-to-month','PaperlessBilling':'Yes','PaymentMethod':'Electronic check','MonthlyCharges':29.85,'TotalCharges':29.85}; public_url=os.environ['RAILWAY_PUBLIC_URL']; health=json.load(urlopen(f'{public_url}/health', timeout=5)); print(json.dumps(health)); assert health.get('loaded') is True; request=Request(f'{public_url}/predict', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type':'application/json'}, method='POST'); prediction=json.load(urlopen(request, timeout=10)); print(json.dumps(prediction))" && exit 0
             sleep 5
           done
           exit 1
