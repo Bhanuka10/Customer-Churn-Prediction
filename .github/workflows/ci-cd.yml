@@ -55,10 +55,12 @@ jobs:
           docker push ghcr.io/${IMAGE_REPO}/churn-api:latest
 
       - name: Deploy to Render
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
       - name: Health check
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
           sleep 60
           curl --fail https://your-app.onrender.com/health
