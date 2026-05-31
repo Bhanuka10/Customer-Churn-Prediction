@@ -3,7 +3,11 @@ import os
 import pickle
 import sys
 import time
+import warnings
 from typing import Optional
+
+# Suppress MLflow deprecation warnings without changing API calls
+warnings.filterwarnings("ignore", category=FutureWarning, module="mlflow")
 
 import mlflow
 import mlflow.sklearn
@@ -82,14 +86,9 @@ def load_model():
         mlflow.set_tracking_uri(MLFLOW_URI)
         try:
             client = mlflow.MlflowClient()
-            # search_model_versions replaces the deprecated get_latest_versions API
-            versions = client.search_model_versions(
-                filter_string=f"name='{MODEL_NAME}'",
-                order_by=["version_number DESC"],
-            )
-            production_versions = [v for v in versions if v.current_stage == "Production"]
-            if production_versions:
-                mv = production_versions[0]
+            versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
+            if versions:
+                mv = versions[0]
                 run_uri = f"runs:/{mv.run_id}/model"
                 MODEL = mlflow.sklearn.load_model(run_uri)
                 print(f"Loaded model from MLflow: {MODEL_NAME} v{mv.version} (run {mv.run_id})")
@@ -156,7 +155,7 @@ class PredictionResponse(BaseModel):
     churn_probability: float
     churn_prediction: bool
     risk_level: str
-    model_name: str
+    model_version: str
 
 # ── Endpoints ────────────────────────────────────────────────────
 @app.get("/health")
@@ -183,7 +182,7 @@ def predict(customer: CustomerFeatures):
         churn_probability=round(proba, 4),
         churn_prediction=prediction,
         risk_level=risk,
-        model_name=MODEL_NAME
+        model_version=MODEL_NAME
     )
 
 @app.get("/metrics")
