@@ -6,7 +6,10 @@ from typing import Optional
 
 import mlflow
 import mlflow.sklearn
-from mlflow.exceptions import MlflowException
+try:
+    from mlflow.exceptions import MlflowException
+except Exception:  # Fallback for test stubs without mlflow.exceptions
+    MlflowException = Exception
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
