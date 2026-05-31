@@ -81,8 +81,20 @@ def load_model():
     if MODEL is None:
         mlflow.set_tracking_uri(MLFLOW_URI)
         try:
-            MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
-            print(f"Loaded model from MLflow: {MODEL_NAME}/Production")
+            client = mlflow.MlflowClient()
+            # search_model_versions replaces the deprecated get_latest_versions API
+            versions = client.search_model_versions(
+                filter_string=f"name='{MODEL_NAME}'",
+                order_by=["version_number DESC"],
+            )
+            production_versions = [v for v in versions if v.current_stage == "Production"]
+            if production_versions:
+                mv = production_versions[0]
+                run_uri = f"runs:/{mv.run_id}/model"
+                MODEL = mlflow.sklearn.load_model(run_uri)
+                print(f"Loaded model from MLflow: {MODEL_NAME} v{mv.version} (run {mv.run_id})")
+            else:
+                raise MlflowException(f"No Production-stage version found for model '{MODEL_NAME}'")
         except MlflowException as exc:
             if "No such artifact" not in str(exc):
                 print(f"Warning: MLflow error loading model: {exc}")
@@ -105,6 +117,7 @@ def load_model():
                     print(f"Warning: No Production-stage entry found in MLflow registry for '{MODEL_NAME}'")
         except Exception as exc:
             print(f"Warning: Unexpected error loading model from MLflow: {exc}")
+
 
     if MODEL is None:
         print(
@@ -138,10 +151,12 @@ class CustomerFeatures(BaseModel):
     TotalCharges: Optional[float] = 0.0
 
 class PredictionResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     churn_probability: float
     churn_prediction: bool
     risk_level: str
-    model_version: str
+    model_name: str
 
 # ── Endpoints ────────────────────────────────────────────────────
 @app.get("/health")
@@ -168,7 +183,7 @@ def predict(customer: CustomerFeatures):
         churn_probability=round(proba, 4),
         churn_prediction=prediction,
         risk_level=risk,
-        model_version=MODEL_NAME
+        model_name=MODEL_NAME
     )
 
 @app.get("/metrics")
