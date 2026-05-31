@@ -17,9 +17,9 @@ services:
     image: ghcr.io/mlflow/mlflow:v2.11.3
     ports:
       - "5000:5000"
-    command: mlflow server --host 0.0.0.0 --port 5000
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri /mlflow/mlruns --default-artifact-root /mlflow/mlruns --registry-store-uri /mlflow/mlruns
     volumes:
-      - mlruns:/mlflow/mlruns
+      - ../notebooks/mlruns:/mlflow/mlruns
 
   prometheus:
     image: prom/prometheus:latest
@@ -36,5 +36,4 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
 
-volumes:
-  mlruns:
+volumes: {}

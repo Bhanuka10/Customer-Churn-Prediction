@@ -21,7 +21,9 @@ REQUEST_LATENCY = Histogram('prediction_latency_seconds', 'Prediction latency')
 MODEL      = None
 SCALER     = None
 MODEL_NAME = os.getenv("MODEL_NAME", "churn_xgboost")
-MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DEFAULT_MLFLOW_URI = f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}"
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 
 @app.on_event("startup")
 def load_model():
