@@ -1,13 +1,9 @@
 import glob
 import os
 import pickle
-import sys
 import time
 import warnings
 from typing import Optional
-
-# Suppress MLflow deprecation warnings without changing API calls
-warnings.filterwarnings("ignore", category=FutureWarning, module="mlflow")
 
 import mlflow
 import mlflow.sklearn
@@ -20,8 +16,10 @@ from fastapi.responses import HTMLResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils.preprocessor import preprocess_input, load_scaler
+from ..utils.preprocessor import preprocess_input, load_scaler
+
+# Suppress MLflow deprecation warnings without changing API calls
+warnings.filterwarnings("ignore", category=FutureWarning, module="mlflow")
 
 app = FastAPI()
 
