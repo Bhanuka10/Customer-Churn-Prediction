@@ -1,9 +1,12 @@
+import glob
 import os
 import sys
 import time
 from typing import Optional
 
+import mlflow
 import mlflow.sklearn
+from mlflow.exceptions import MlflowException
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -12,7 +15,7 @@ from pydantic import BaseModel
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.preprocessor import preprocess_input, load_scaler
 
-app = FastAPI(title="Churn Prediction API", version="1.0")
+app = FastAPI()
 
 # ── Prometheus metrics ──────────────────────────────────────────
 REQUEST_COUNT   = Counter('predictions_total', 'Total predictions', ['result'])
@@ -26,6 +29,23 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 DEFAULT_MLFLOW_URI = f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}"
 MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 
+def _read_meta_value(lines, key):
+    prefix = f"{key}:"
+    for line in lines:
+        if line.startswith(prefix):
+            return line.split(":", 1)[1].strip()
+    return None
+
+def _find_model_id(model_name, stage):
+    registry_dir = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "models", model_name)
+    for meta_path in glob.glob(os.path.join(registry_dir, "version-*", "meta.yaml")):
+        with open(meta_path, "r", encoding="utf-8") as handle:
+            lines = [line.strip() for line in handle.readlines()]
+        current_stage = _read_meta_value(lines, "current_stage")
+        if current_stage == stage:
+            return _read_meta_value(lines, "model_id")
+    return None
+
 @app.on_event("startup")
 def load_model():
     global MODEL, SCALER
@@ -33,7 +53,19 @@ def load_model():
         print("Skipping model load (SKIP_MODEL_LOAD set).")
         return
     mlflow.set_tracking_uri(MLFLOW_URI)
-    MODEL  = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
+    try:
+        MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
+    except MlflowException as exc:
+        if "No such artifact" not in str(exc):
+            raise
+        model_id = _find_model_id(MODEL_NAME, "Production")
+        if not model_id:
+            raise
+        pattern = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "*", "models", model_id, "artifacts")
+        matches = glob.glob(pattern)
+        if not matches:
+            raise
+        MODEL = mlflow.sklearn.load_model(matches[0])
     SCALER = load_scaler("artifacts/scaler.pkl")
     print(f"Loaded model: {MODEL_NAME}/Production")
 
