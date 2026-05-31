@@ -29,25 +29,20 @@ MODEL      = None
 SCALER     = None
 MODEL_NAME = os.getenv("MODEL_NAME", "churn_xgboost")
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DEFAULT_MLFLOW_URI = f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}"
-MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_MLFLOW_URI)
 
-def _read_meta_value(lines, key):
-    prefix = f"{key}:"
-    for line in lines:
-        if line.startswith(prefix):
-            return line.split(":", 1)[1].strip()
-    return None
-
-def _find_model_id(model_name, stage):
-    registry_dir = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "models", model_name)
-    for meta_path in glob.glob(os.path.join(registry_dir, "version-*", "meta.yaml")):
-        with open(meta_path, "r", encoding="utf-8") as handle:
-            lines = [line.strip() for line in handle.readlines()]
-        current_stage = _read_meta_value(lines, "current_stage")
-        if current_stage == stage:
-            return _read_meta_value(lines, "model_id")
-    return None
+def _load_model_from_artifacts():
+    """Load model directly from artifacts directory."""
+    global MODEL
+    artifacts_dir = os.path.join(PROJECT_ROOT, "artifacts")
+    model_path = os.path.join(artifacts_dir, "model.pkl")
+    
+    if os.path.exists(model_path):
+        import pickle
+        with open(model_path, "rb") as f:
+            MODEL = pickle.load(f)
+        print(f"Loaded model from {model_path}")
+        return True
+    return False
 
 @app.on_event("startup")
 def load_model():
@@ -55,22 +50,22 @@ def load_model():
     if os.getenv("SKIP_MODEL_LOAD", "").lower() in {"1", "true", "yes"}:
         print("Skipping model load (SKIP_MODEL_LOAD set).")
         return
-    mlflow.set_tracking_uri(MLFLOW_URI)
+    
+    # Try to load from artifacts directory first
+    if _load_model_from_artifacts():
+        SCALER = load_scaler("artifacts/scaler.pkl")
+        print(f"Loaded model: {MODEL_NAME}")
+        return
+    
+    # Fallback to MLflow if available
     try:
+        mlflow.set_tracking_uri(f"file:{os.path.join(PROJECT_ROOT, 'notebooks', 'mlruns')}")
         MODEL = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/Production")
-    except MlflowException as exc:
-        if "No such artifact" not in str(exc):
-            raise
-        model_id = _find_model_id(MODEL_NAME, "Production")
-        if not model_id:
-            raise
-        pattern = os.path.join(PROJECT_ROOT, "notebooks", "mlruns", "*", "models", model_id, "artifacts")
-        matches = glob.glob(pattern)
-        if not matches:
-            raise
-        MODEL = mlflow.sklearn.load_model(matches[0])
-    SCALER = load_scaler("artifacts/scaler.pkl")
-    print(f"Loaded model: {MODEL_NAME}/Production")
+        SCALER = load_scaler("artifacts/scaler.pkl")
+        print(f"Loaded model: {MODEL_NAME}/Production from MLflow")
+    except Exception as e:
+        print(f"Warning: Could not load model: {e}")
+        print("API will respond with 503 until model is loaded.")
 
 # ── Request / response schemas ───────────────────────────────────
 class CustomerFeatures(BaseModel):
@@ -131,3 +126,4 @@ def predict(customer: CustomerFeatures):
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
